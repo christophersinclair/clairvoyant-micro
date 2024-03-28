@@ -281,12 +281,12 @@ void loop() {
 
           int messageLength = strlen("CONGRATULATIONS TO PLAYER ") + strlen(candidate.guesser) +
                         strlen("! They guessed that player ") + strlen(candidate.target) +
-                        strlen(" would have the controller in ") + 2 * numDigits(candidate.turnsToGo - 1) +
-                        strlen("turns, ") + 2 * numDigits(candidate.turnsToGo - 1) + strlen(" turns ago!");
+                        strlen(" would have the controller in ") + 2 * numDigits(candidate.turnsToGo) +
+                        strlen("turns, ") + 2 * numDigits(candidate.turnsToGo) + strlen(" turns ago!");
 
           char *congratsMessage = new char[messageLength + 1];
           sprintf(congratsMessage, "CONGRATULATIONS TO PLAYER %s! They guessed that player %s would have the controller in %d turns, %d turns ago!",
-            candidate.guesser, candidate.target, candidate.turnsToGo - 1, candidate.turnsToGo - 1);
+            candidate.guesser, candidate.target, candidate.turnsToGo, candidate.turnsToGo);
           
           displayMessage(congratsMessage, 3);
           delay(10000);
