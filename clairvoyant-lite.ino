@@ -44,7 +44,14 @@ const int BLUE_BTN = 4;
 const int YELLOW_BTN = 5;
 
 const int ENTER_GREEN = 6;
-const int MULTI_BLACK = 7;
+
+// Set GPIO pin location for reset
+const int RESET_PIN = 7;
+
+// Set GPIO pin locations for rotary encoder
+const int ROT_SW = 8;
+const int ROT_DT = 9;
+const int ROT_CLK = 10;
 
 // Clairvoyant Lite is set to 3 players only
 const int NUM_PLAYERS = 3;
@@ -74,7 +81,14 @@ void setup() {
   pinMode(YELLOW_BTN, INPUT_PULLUP);
 
   pinMode(ENTER_GREEN, INPUT_PULLUP);
-  pinMode(MULTI_BLACK, INPUT_PULLUP);
+
+  // Reset pin
+  pinMode(RESET_PIN, OUTPUT);
+
+  // Rotary Encoder
+  pinMode(ROT_SW, INPUT_PULLUP);
+  pinMode(ROT_DT, INPUT_PULLUP);
+  pinMode(ROT_CLK, INPUT_PULLUP);
 
   Serial.begin(9600);
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
@@ -100,20 +114,25 @@ int numDigits(int num) {
     return digits;
 }
 
-void displayMessage(char *message) {
+void displayMessage(char *message, int loops) {
   int numScrolls = 0;
-  int maxScrolls = 3; // Scroll the message thrice
+  int maxScrolls = loops; // Scroll the message thrice
   int totalWidth = -12 * strlen(message);
   int x = display.width();
   
   // Loop until we've scrolled the message thrice
   while (numScrolls < maxScrolls) {
     for (int x_pos = x; x_pos > totalWidth; x_pos -= 5) {
+      if (digitalRead(ROT_SW) == 0) { 
+        display.clearDisplay();
+        display.display();
+        return; 
+      }
       display.clearDisplay();
       display.setCursor(x_pos, 10);
       display.print(message);
       display.display();
-      delay(50); // Adjust this delay to control scroll speed
+      delay(15); // Adjust this delay to control scroll speed
     }
     numScrolls++;
   }
@@ -123,21 +142,23 @@ void displayInt(int value) {
   char message[20];
   itoa(value, message, 10);
 
-  displayMessage(message);
+  display.clearDisplay();
+  display.setCursor (0, 10);
+  display.print(message);
+  display.display();
 }
 
 void loop() {
   // Display welcome message
   char welcomeMessage[] = "Welcome to Clairvoyant Lite!";
-  displayMessage(welcomeMessage);
+  displayMessage(welcomeMessage, 2);
 
   // Display select number of players
   char liteMessage[] = "This version of the game is set to three players only (Blue, Red, and Yellow).";
-  displayMessage(liteMessage);
-  delay(5000);
+  displayMessage(liteMessage, 1);
 
   char colorChoiceMessage[] = "Please choose which color player you will be, then press the Green button to get started!";
-  displayMessage(colorChoiceMessage);
+  displayMessage(colorChoiceMessage, 2);
   for(;;) {
     if (digitalRead(ENTER_GREEN) == 0) {
       digitalWrite(ENTER_GREEN, HIGH);
@@ -146,11 +167,11 @@ void loop() {
   }
 
   // Randomly choose who goes first
-  long randNumber = random(NUM_PLAYERS);
+  long randNumber = random(0, NUM_PLAYERS);
   char *currentPlayer;
-  if (randNumber == 0) {
+  if (randNumber % NUM_PLAYERS == 0) {
     char blueFirstMessage[] = "Blue player goes first! Please hand the controller to them, then have them press the Blue button.";
-    displayMessage(blueFirstMessage);
+    displayMessage(blueFirstMessage, 1);
     for(;;) {
       if (digitalRead(BLUE_BTN) == 0) {
         digitalWrite(BLUE_LED, HIGH);
@@ -162,9 +183,9 @@ void loop() {
         break;
       }
     }
-  } else if (randNumber == 1) {
+  } else if (randNumber % NUM_PLAYERS == 1) {
     char redFirstMessage[] = "Red player goes first! Please hand the controller to them, then have them press the Red button.";
-    displayMessage(redFirstMessage);
+    displayMessage(redFirstMessage, 1);
     for(;;) {
       if (digitalRead(RED_BTN) == 0) {
         digitalWrite(RED_LED, HIGH);
@@ -178,7 +199,7 @@ void loop() {
     }
   } else {
     char yellowFirstMessage[] = "Yellow player goes first! Please hand the controller to them, then have them press the Yellow button.";
-    displayMessage(yellowFirstMessage);
+    displayMessage(yellowFirstMessage, 1);
     for(;;) {
       if (digitalRead(YELLOW_BTN) == 0) {
         digitalWrite(YELLOW_LED, HIGH);
@@ -199,64 +220,92 @@ void loop() {
   for(;;) {
     if (TURN == 99) {
       char tieGameMessage[] = "No more guesses! Its a tie!";
-      displayMessage(tieGameMessage);
+      displayMessage(tieGameMessage, 2);
       delay(10000);
 
       // Reboot device
       resetFunc();
     }
     if (TURN > 0) {
-      displayMessage(playerIdentificationMessage);
-      delay(3000);
-      if (digitalRead(RED_BTN) == 0) {
-        digitalWrite(RED_LED, HIGH);
-        currentPlayer = "RED";
-        digitalWrite(RED_BTN, HIGH);
+      displayMessage(playerIdentificationMessage, 1);
+      for(;;) {
+        if (digitalRead(RED_BTN) == 0) {
+          digitalWrite(RED_LED, HIGH);
+          currentPlayer = "RED";
+          digitalWrite(RED_BTN, HIGH);
 
-        delay(1000);
-        digitalWrite(RED_LED, LOW);
-      } else if (digitalRead(BLUE_BTN) == 0) {
-        digitalWrite(BLUE_LED, HIGH);
-        currentPlayer = "BLUE";
-        digitalWrite(BLUE_BTN, HIGH);
+          delay(1000);
+          digitalWrite(RED_LED, LOW);
 
-        delay(1000);
-        digitalWrite(BLUE_LED, LOW);
-      } else if (digitalRead(YELLOW_BTN) == 0) {
-        digitalWrite(YELLOW_LED, HIGH);
-        currentPlayer = "YELLOW";
-        digitalWrite(YELLOW_BTN, HIGH);
+          break;
+        } else if (digitalRead(BLUE_BTN) == 0) {
+          digitalWrite(BLUE_LED, HIGH);
+          currentPlayer = "BLUE";
+          digitalWrite(BLUE_BTN, HIGH);
 
-        delay(1000);
-        digitalWrite(YELLOW_LED, LOW);
+          delay(1000);
+          digitalWrite(BLUE_LED, LOW);
+
+          break;
+        } else if (digitalRead(YELLOW_BTN) == 0) {
+          digitalWrite(YELLOW_LED, HIGH);
+          currentPlayer = "YELLOW";
+          digitalWrite(YELLOW_BTN, HIGH);
+
+          delay(1000);
+          digitalWrite(YELLOW_LED, LOW);
+
+          break;
+        }
       }
 
       for (int i = 0; i < TURN; i++) {
         guess candidate = guesses[i];
         if (candidate.turnItWillBe == TURN && candidate.target == currentPlayer) {
+          for (int j = 0; j < 4; j++){
+            digitalWrite(BLUE_LED, HIGH);
+            delay(100);
+            digitalWrite(RED_LED, HIGH);
+            delay(100);
+            digitalWrite(YELLOW_LED, HIGH);
+            delay(100);
+            digitalWrite(BLUE_LED, LOW);
+            delay(100);
+            digitalWrite(RED_LED, LOW);
+            delay(100);
+            digitalWrite(YELLOW_LED, LOW);
+            delay(100);
+          }
+          
+          if (candidate.guesser == "BLUE") { digitalWrite(BLUE_LED, HIGH); }
+          if (candidate.guesser == "RED") { digitalWrite(RED_LED, HIGH); }
+          if (candidate.guesser == "YELLOW") { digitalWrite(YELLOW_LED, HIGH); }
+
           int messageLength = strlen("CONGRATULATIONS TO PLAYER ") + strlen(candidate.guesser) +
                         strlen("! They guessed that player ") + strlen(candidate.target) +
-                        strlen(" would have the controller in ") + 2 * numDigits(candidate.turnsToGo) +
-                        strlen(", ") + 2 * numDigits(candidate.turnsToGo) + strlen(" turns ago!");
+                        strlen(" would have the controller in ") + 2 * numDigits(candidate.turnsToGo - 1) +
+                        strlen("turns, ") + 2 * numDigits(candidate.turnsToGo - 1) + strlen(" turns ago!");
 
           char *congratsMessage = new char[messageLength + 1];
-          sprintf(congratsMessage, "CONGRATULATIONS TO PLAYER %s! They guessed that player %s would have the controller in %d, %d turns ago!",
-            candidate.guesser, candidate.target, candidate.turnsToGo, candidate.turnsToGo);
+          sprintf(congratsMessage, "CONGRATULATIONS TO PLAYER %s! They guessed that player %s would have the controller in %d turns, %d turns ago!",
+            candidate.guesser, candidate.target, candidate.turnsToGo - 1, candidate.turnsToGo - 1);
           
-          displayMessage(congratsMessage);
-          delay(30000);
+          displayMessage(congratsMessage, 3);
+          delay(10000);
 
-          delete[] congratsMessage;
+          digitalWrite(BLUE_LED, LOW);
+          digitalWrite(RED_LED, LOW);
+          digitalWrite(YELLOW_LED, LOW);
 
           // Reboot device
-          resetFunc();
+          digitalWrite(RESET_PIN, HIGH);
         }
       }
     }
 
     gameTurn(currentPlayer, TURN);
 
-    displayMessage(nextPlayerMessage);
+    displayMessage(nextPlayerMessage, 2);
     for(;;) {
       if (digitalRead(ENTER_GREEN) == 0) {
         digitalWrite(ENTER_GREEN, HIGH);
@@ -271,34 +320,44 @@ void loop() {
 void gameTurn(char *currentPlayer, int turn) {
   int turnsToGo = 2;
   char *target;
-  char turnGuesserMessage[] = "Hello, player! How far into the future can you see? (Use the Black button to increment the number of turns you want to guess for, then the Green button to lock in)";
+  char turnGuesserMessage[] = "Hello, player! How far into the future can you see? (Use the dial to increment the number of turns you want to guess for, then press the dial in to lock in your guess)";
   char playerGuesserMessage[] = "When you look to the future, who do you see in your mind? (Press the button corresponding to your guessed target)";
 
-  displayMessage(turnGuesserMessage);
-  delay(5000);
+  displayMessage(turnGuesserMessage, 1);
 
+  int clk_init = digitalRead(ROT_CLK);
   for (;;) {
-    if (digitalRead(MULTI_BLACK) == 0) {
-      // Can only guess up to 10 turns ahead until it cycles back to 2
-      if (turnsToGo < 11) {
-        turnsToGo++;
-        digitalWrite(MULTI_BLACK, HIGH);
-      } else {
-        turnsToGo = 2;
-        digitalWrite(MULTI_BLACK, HIGH);
+    int clk_now = digitalRead(ROT_CLK);
+
+    // Check if the state of CLK has changed, indicating rotation
+    if (clk_now != clk_init) {
+      int dt = digitalRead(ROT_DT);
+
+      // Determine the direction of the rotation
+      if (clk_now != dt) {
+        if (turnsToGo < 10) {
+          turnsToGo++;
+        } else {
+          turnsToGo = 2;
+        }
+      } else if (clk_now == dt && turnsToGo > 2) {
+        turnsToGo--; // Counterclockwise rotation
       }
       displayInt(turnsToGo);
+
+      // Important: Update clk_init to the new state for next iteration
+      clk_init = clk_now;
     }
 
-    if (digitalRead(ENTER_GREEN) == 0) {
-      // Lock in the choice
-      digitalWrite(ENTER_GREEN, HIGH);
+    // Check if the encoder button is pressed
+    int sw = digitalRead(ROT_SW);
+    if (sw == LOW) { // Assuming LOW when pressed
+      // Confirm selection and exit loop
       break;
     }
   }
 
-  displayMessage(playerGuesserMessage);
-  delay(5000);
+  displayMessage(playerGuesserMessage, 1);
 
   for(;;) {
     if (digitalRead(RED_BTN) == 0) {
