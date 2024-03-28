@@ -10,8 +10,9 @@ See README.md for how the game works.
 ### Hardware
 1 x Arduino Uno
 1 x SSD13306 OLED display connected to the A4 and A5 analog pins on the Arduino
-5 x LEDs of colors red, blue, and yellow
+3 x LEDs of colors red, blue, and yellow
 5 x Buttons with colored caps of red, blue, yellow, green, and black
+1 x KY-040 rotary encoder
 
 ### Software
 Adafruit_BusIO
@@ -44,9 +45,7 @@ const int BLUE_BTN = 4;
 const int YELLOW_BTN = 5;
 
 const int ENTER_GREEN = 6;
-
-// Set GPIO pin location for reset
-const int RESET_PIN = 7;
+const int MULTI_BLACK = 7;
 
 // Set GPIO pin locations for rotary encoder
 const int ROT_SW = 8;
@@ -81,9 +80,7 @@ void setup() {
   pinMode(YELLOW_BTN, INPUT_PULLUP);
 
   pinMode(ENTER_GREEN, INPUT_PULLUP);
-
-  // Reset pin
-  pinMode(RESET_PIN, OUTPUT);
+  pinMode(MULTI_BLACK, INPUT_PULLUP);
 
   // Rotary Encoder
   pinMode(ROT_SW, INPUT_PULLUP);
@@ -123,9 +120,10 @@ void displayMessage(char *message, int loops) {
   // Loop until we've scrolled the message thrice
   while (numScrolls < maxScrolls) {
     for (int x_pos = x; x_pos > totalWidth; x_pos -= 5) {
-      if (digitalRead(ROT_SW) == 0) { 
+      if (digitalRead(MULTI_BLACK) == 0) { 
         display.clearDisplay();
         display.display();
+        digitalWrite(MULTI_BLACK, HIGH);
         return; 
       }
       display.clearDisplay();
@@ -298,7 +296,7 @@ void loop() {
           digitalWrite(YELLOW_LED, LOW);
 
           // Reboot device
-          digitalWrite(RESET_PIN, HIGH);
+          resetFunc();
         }
       }
     }
