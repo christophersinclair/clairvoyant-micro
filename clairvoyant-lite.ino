@@ -1,9 +1,8 @@
 /**************************************************************************
 Written by Chris Sinclair
 
-# Clairvoyant Lite
-Clairvoyant is a seemingly simple game of memory. The Lite version is set
-to only three players, and uses only buttons.
+# Clairvoyant
+Clairvoyant is a seemingly simple game of memory.
 
 ### Game Rules
 See README.md for how the game works.
@@ -29,8 +28,10 @@ Adafruit_SSD1306
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
 #define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
-#define SCREEN_ADDRESS 0x3D ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
+#define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+int x, minX;
 
 // Set GPIO pin locations for LEDs
 const int RED_LED = 0;
@@ -52,8 +53,8 @@ struct guess {
   int turnItIs;
   int turnItWillBe;
   int turnsToGo;
-  String target;
-  String guesser;
+  const char *target;
+  const char *guesser;
 };
 
 // Only 100 guesses allowed until game runs out
@@ -82,35 +83,56 @@ void setup() {
     for(;;); // Don't proceed, loop forever
   }
 
-  display.display();
-  delay(2000); // Pause for 2 seconds
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setTextWrap(false);
 }
 
-void displayMessage(String message) {
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(10,0);
-  
-  display.println(message);
-  display.display();
+int numDigits(int num) {
+    int digits = 0;
+    if (num == 0) {
+        return 1;
+    }
+    while (num != 0) {
+        num /= 10;
+        digits++;
+    }
+    return digits;
+}
 
-  display.startscrollleft(0x00, 0x0F);
-  delay(2000);
-  display.stopscroll();
-  delay(1000);
+void displayMessage(char *message) {
+  x = display.width();
+  minX = -12 * strlen(message);
+  for(;;) {
+   display.clearDisplay();
+   display.setCursor(0,0);
+   display.setCursor(x,10);
+   display.print(message);
+   display.display();
+   x=x-5; // scroll speed, make more positive to slow down the scroll
+   if(x < minX) x= display.width();
+  }
+}
 
+void displayInt(int value) {
+  char message[20];
+  itoa(value, message, 10);
+
+  displayMessage(message);
 }
 
 void loop() {
   // Display welcome message
-  displayMessage(String("Welcome to Clairvoyant Lite!"));
+  char welcomeMessage[] = "Welcome to Clairvoyant Lite!";
+  displayMessage(welcomeMessage);
 
   // Display select number of players
-  displayMessage(String("This version of the game is set to three players only (Blue, Red, and Yellow)."));
+  char liteMessage[] = "This version of the game is set to three players only (Blue, Red, and Yellow).";
+  displayMessage(liteMessage);
   delay(5000);
 
-  displayMessage(String("Please choose which color player you will be, then press the Green button to get started!"));
+  char colorChoiceMessage[] = "Please choose which color player you will be, then press the Green button to get started!";
+  displayMessage(colorChoiceMessage);
   for(;;) {
     if (digitalRead(ENTER_GREEN) == 0) {
       digitalWrite(ENTER_GREEN, HIGH);
@@ -120,13 +142,14 @@ void loop() {
 
   // Randomly choose who goes first
   long randNumber = random(NUM_PLAYERS);
-  String currentPlayer;
+  char *currentPlayer;
   if (randNumber == 0) {
-    displayMessage(String("Blue player goes first! Please hand the controller to them, then have them press the Blue button."));
+    char blueFirstMessage[] = "Blue player goes first! Please hand the controller to them, then have them press the Blue button.";
+    displayMessage(blueFirstMessage);
     for(;;) {
       if (digitalRead(BLUE_BTN) == 0) {
         digitalWrite(BLUE_LED, HIGH);
-        currentPlayer = String("BLUE");
+        currentPlayer = "BLUE";
         digitalWrite(BLUE_BTN, HIGH);
 
         delay(1000);
@@ -135,11 +158,12 @@ void loop() {
       }
     }
   } else if (randNumber == 1) {
-    displayMessage(String("Red player goes first! Please hand the controller to them, then have them press the Red button."));
+    char redFirstMessage[] = "Red player goes first! Please hand the controller to them, then have them press the Red button.";
+    displayMessage(redFirstMessage);
     for(;;) {
       if (digitalRead(RED_BTN) == 0) {
         digitalWrite(RED_LED, HIGH);
-        currentPlayer = String("RED");
+        currentPlayer = "RED";
         digitalWrite(RED_BTN, HIGH);
 
         delay(1000);
@@ -148,11 +172,12 @@ void loop() {
       }
     }
   } else {
-    displayMessage(String("Yellow player goes first! Please hand the controller to them, then have them press the Yellow button."));
+    char yellowFirstMessage[] = "Yellow player goes first! Please hand the controller to them, then have them press the Yellow button.";
+    displayMessage(yellowFirstMessage);
     for(;;) {
       if (digitalRead(YELLOW_BTN) == 0) {
         digitalWrite(YELLOW_LED, HIGH);
-        currentPlayer = String("YELLOW");
+        currentPlayer = "YELLOW";
         digitalWrite(YELLOW_BTN, HIGH);
 
         delay(1000);
@@ -163,34 +188,38 @@ void loop() {
   }
 
   int TURN = 0;
+  char playerIdentificationMessage[] = "Which player are YOU? Press your colored button.";
+  char nextPlayerMessage[] = "Now pick whoever should guess next, and hand the controller to them. Once ready for the next turn, press the Green button.";
+
   for(;;) {
     if (TURN == 99) {
-      displayMessage(String("No more guesses! Its a tie!"));
+      char tieGameMessage[] = "No more guesses! Its a tie!";
+      displayMessage(tieGameMessage);
       delay(10000);
 
       // Reboot device
       resetFunc();
     }
     if (TURN > 0) {
-      displayMessage(String("Which player are YOU? Press your colored button."));
+      displayMessage(playerIdentificationMessage);
       delay(3000);
       if (digitalRead(RED_BTN) == 0) {
         digitalWrite(RED_LED, HIGH);
-        currentPlayer = String("RED");
+        currentPlayer = "RED";
         digitalWrite(RED_BTN, HIGH);
 
         delay(1000);
         digitalWrite(RED_LED, LOW);
       } else if (digitalRead(BLUE_BTN) == 0) {
         digitalWrite(BLUE_LED, HIGH);
-        currentPlayer = String("BLUE");
+        currentPlayer = "BLUE";
         digitalWrite(BLUE_BTN, HIGH);
 
         delay(1000);
         digitalWrite(BLUE_LED, LOW);
       } else if (digitalRead(YELLOW_BTN) == 0) {
         digitalWrite(YELLOW_LED, HIGH);
-        currentPlayer = String("YELLOW");
+        currentPlayer = "YELLOW";
         digitalWrite(YELLOW_BTN, HIGH);
 
         delay(1000);
@@ -200,8 +229,19 @@ void loop() {
       for (int i = 0; i < TURN; i++) {
         guess candidate = guesses[i];
         if (candidate.turnItWillBe == TURN && candidate.target == currentPlayer) {
-          displayMessage(String("CONGRATULATIONS TO PLAYER " + candidate.guesser + "! They guessed that player " + candidate.target + " would have the controller in " + String(candidate.turnsToGo) + ", " + String(candidate.turnsToGo) + " turns ago!"));
+          int messageLength = strlen("CONGRATULATIONS TO PLAYER ") + strlen(candidate.guesser) +
+                        strlen("! They guessed that player ") + strlen(candidate.target) +
+                        strlen(" would have the controller in ") + 2 * numDigits(candidate.turnsToGo) +
+                        strlen(", ") + 2 * numDigits(candidate.turnsToGo) + strlen(" turns ago!");
+
+          char *congratsMessage = new char[messageLength + 1];
+          sprintf(congratsMessage, "CONGRATULATIONS TO PLAYER %s! They guessed that player %s would have the controller in %d, %d turns ago!",
+            candidate.guesser, candidate.target, candidate.turnsToGo, candidate.turnsToGo);
+          
+          displayMessage(congratsMessage);
           delay(30000);
+
+          delete[] congratsMessage;
 
           // Reboot device
           resetFunc();
@@ -211,7 +251,7 @@ void loop() {
 
     gameTurn(currentPlayer, TURN);
 
-    displayMessage(String("Now pick whoever should guess next, and hand the controller to them. Once ready for the next turn, press the Green button."));
+    displayMessage(nextPlayerMessage);
     for(;;) {
       if (digitalRead(ENTER_GREEN) == 0) {
         digitalWrite(ENTER_GREEN, HIGH);
@@ -223,11 +263,13 @@ void loop() {
   }
 }
 
-void gameTurn(String currentPlayer, int turn) {
+void gameTurn(char *currentPlayer, int turn) {
   int turnsToGo = 2;
-  String target;
+  char *target;
+  char turnGuesserMessage[] = "Hello, player! How far into the future can you see? (Use the Black button to increment the number of turns you want to guess for, then the Green button to lock in)";
+  char playerGuesserMessage[] = "When you look to the future, who do you see in your mind? (Press the button corresponding to your guessed target)";
 
-  displayMessage(String("Hello, " + currentPlayer + "! How far into the future can you see (Use the Black button to increment the number of turns you want to guess for, then the Green button to lock in)"));
+  displayMessage(turnGuesserMessage);
   delay(5000);
 
   for (;;) {
@@ -240,7 +282,7 @@ void gameTurn(String currentPlayer, int turn) {
         turnsToGo = 2;
         digitalWrite(MULTI_BLACK, HIGH);
       }
-      displayMessage(String(turnsToGo));
+      displayInt(turnsToGo);
     }
 
     if (digitalRead(ENTER_GREEN) == 0) {
@@ -250,7 +292,7 @@ void gameTurn(String currentPlayer, int turn) {
     }
   }
 
-  displayMessage(String("When you look to the future, who do you see in your mind? (Press the button corresponding to your guessed target)"));
+  displayMessage(playerGuesserMessage);
   delay(5000);
 
   for(;;) {
