@@ -101,16 +101,21 @@ int numDigits(int num) {
 }
 
 void displayMessage(char *message) {
-  x = display.width();
-  minX = -12 * strlen(message);
-  for(;;) {
-   display.clearDisplay();
-   display.setCursor(0,0);
-   display.setCursor(x,10);
-   display.print(message);
-   display.display();
-   x=x-5; // scroll speed, make more positive to slow down the scroll
-   if(x < minX) x= display.width();
+  int numScrolls = 0;
+  int maxScrolls = 3; // Scroll the message thrice
+  int totalWidth = -12 * strlen(message);
+  int x = display.width();
+  
+  // Loop until we've scrolled the message thrice
+  while (numScrolls < maxScrolls) {
+    for (int x_pos = x; x_pos > totalWidth; x_pos -= 5) {
+      display.clearDisplay();
+      display.setCursor(x_pos, 10);
+      display.print(message);
+      display.display();
+      delay(50); // Adjust this delay to control scroll speed
+    }
+    numScrolls++;
   }
 }
 
