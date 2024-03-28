@@ -1,8 +1,9 @@
 /**************************************************************************
 Written by Chris Sinclair
 
-# Clairvoyant
-Clairvoyant is a seemingly simple game of memory.
+# Clairvoyant Lite
+Clairvoyant is a seemingly simple game of memory. The Lite version is set
+to only three players, and uses only buttons.
 
 ### Game Rules
 See README.md for how the game works.
