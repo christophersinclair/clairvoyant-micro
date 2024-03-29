@@ -29,11 +29,21 @@ Adafruit_SSD1306
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
 #define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
-#define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
+#define SCREEN_ADDRESS 0x3C ///< See datasheet for address
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-enum GameSegment { NEXT_GREEN, ID_YOURSELF, START_TURN, CHOOSE_TARGET, CHOOSE_TURNS, NEXT_RED, NEXT_YELLOW, NEXT_BLUE };
+enum GameSegment { 
+  NEXT_GREEN, 
+  ID_YOURSELF,
+  START_TURN,
+  CHOOSE_TARGET,
+  CHOOSE_TURNS,
+  NEXT_RED,
+  NEXT_YELLOW,
+  NEXT_BLUE
+};
 
+// Bounds on display
 int x, minX;
 
 // Set GPIO pin locations for LEDs
@@ -57,6 +67,7 @@ const int ROT_CLK = 10;
 // Clairvoyant Lite is set to 3 players only
 const int NUM_PLAYERS = 3;
 
+// Define everything needed in a guess
 struct guess {
   int turnItIs;
   int turnItWillBe;
@@ -68,6 +79,7 @@ struct guess {
 // Only 100 guesses allowed until game runs out
 guess guesses[100];
 
+// Reset device at end of game
 void(* resetFunc) (void) = 0;
 
 void setup() {
@@ -90,13 +102,13 @@ void setup() {
   pinMode(ROT_CLK, INPUT_PULLUP);
 
   Serial.begin(9600);
-  // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println("SSD1306 allocation failed");
     for(;;); // Don't proceed, loop forever
   }
 }
 
+// Calculate number of digits in a number
 int numDigits(int num) {
     int digits = 0;
     if (num == 0) {
@@ -109,6 +121,7 @@ int numDigits(int num) {
     return digits;
 }
 
+// Can use black button to skip scrolling display, will display the short form of next action
 void displaySkipMessage(char *message, GameSegment segment) {
   display.clearDisplay();
   digitalWrite(MULTI_BLACK, HIGH);
@@ -147,9 +160,10 @@ void displaySkipMessage(char *message, GameSegment segment) {
   }
 }
 
+// Display a scrolling message on the screen
 void displayMessage(char *message, int loops, GameSegment segment) {
   int numScrolls = 0;
-  int maxScrolls = loops; // Scroll the message thrice
+  int maxScrolls = loops; // Scroll the message <loops> times
   int totalWidth = -12 * strlen(message);
   int x = display.width();
 
@@ -157,9 +171,10 @@ void displayMessage(char *message, int loops, GameSegment segment) {
   display.setTextColor(WHITE);
   display.setTextWrap(false);
   
-  // Loop until we've scrolled the message thrice
+  // Loop until we've scrolled the message <loops> times
   while (numScrolls < maxScrolls) {
     for (int x_pos = x; x_pos > totalWidth; x_pos -= 5) {
+      // If black button was pressed, skip scrolling
       if (digitalRead(MULTI_BLACK) == 0) { 
         displaySkipMessage(message, segment);
         display.setTextSize(2);
@@ -175,12 +190,14 @@ void displayMessage(char *message, int loops, GameSegment segment) {
   }
 }
 
+// Display a single number on the screen
 void displayInt(int value) {
   char message[20];
   itoa(value, message, 10);
 
+  display.setTextSize(3);
   display.clearDisplay();
-  display.setCursor (0, 10);
+  display.setCursor (10, 10);
   display.print(message);
   display.display();
 }
@@ -196,6 +213,8 @@ void loop() {
 
   char colorChoiceMessage[] = "Please choose which color player you will be, then press the Green button to get started!";
   displayMessage(colorChoiceMessage, 2, NEXT_GREEN);
+
+  // Wait until green is pressed
   for(;;) {
     if (digitalRead(ENTER_GREEN) == 0) {
       digitalWrite(ENTER_GREEN, HIGH);
@@ -209,6 +228,8 @@ void loop() {
   if (randNumber % NUM_PLAYERS == 0) {
     char blueFirstMessage[] = "Blue player goes first! Please hand the controller to them, then have them press the Blue button.";
     displayMessage(blueFirstMessage, 1, NEXT_BLUE);
+
+    // Wait until blue is pressed
     for(;;) {
       if (digitalRead(BLUE_BTN) == 0) {
         digitalWrite(BLUE_LED, HIGH);
@@ -223,6 +244,8 @@ void loop() {
   } else if (randNumber % NUM_PLAYERS == 1) {
     char redFirstMessage[] = "Red player goes first! Please hand the controller to them, then have them press the Red button.";
     displayMessage(redFirstMessage, 1, NEXT_RED);
+
+    // Wait until red is pressed
     for(;;) {
       if (digitalRead(RED_BTN) == 0) {
         digitalWrite(RED_LED, HIGH);
@@ -237,6 +260,8 @@ void loop() {
   } else {
     char yellowFirstMessage[] = "Yellow player goes first! Please hand the controller to them, then have them press the Yellow button.";
     displayMessage(yellowFirstMessage, 1, NEXT_YELLOW);
+
+    // Wait until yellow is pressed
     for(;;) {
       if (digitalRead(YELLOW_BTN) == 0) {
         digitalWrite(YELLOW_LED, HIGH);
@@ -255,6 +280,7 @@ void loop() {
   char nextPlayerMessage[] = "Now pick whoever should guess next, and hand the controller to them. Once ready for the next turn, press the Green button.";
 
   for(;;) {
+    // Only allocated 100 guesses
     if (TURN == 99) {
       char tieGameMessage[] = "No more guesses! Its a tie!";
       displayMessage(tieGameMessage, 2, NEXT_GREEN);
@@ -265,6 +291,8 @@ void loop() {
     }
     if (TURN > 0) {
       displayMessage(playerIdentificationMessage, 1, ID_YOURSELF);
+
+      // Wait for player identification
       for(;;) {
         if (digitalRead(RED_BTN) == 0) {
           digitalWrite(RED_LED, HIGH);
@@ -298,7 +326,10 @@ void loop() {
 
       for (int i = 0; i < TURN; i++) {
         guess candidate = guesses[i];
+
+        // Win condition
         if (candidate.turnItWillBe == TURN && candidate.target == currentPlayer) {
+          // Party lights
           for (int j = 0; j < 4; j++){
             digitalWrite(BLUE_LED, HIGH);
             delay(100);
@@ -314,6 +345,7 @@ void loop() {
             delay(100);
           }
           
+          // Display who won in LED
           if (candidate.guesser == "BLUE") { digitalWrite(BLUE_LED, HIGH); }
           if (candidate.guesser == "RED") { digitalWrite(RED_LED, HIGH); }
           if (candidate.guesser == "YELLOW") { digitalWrite(YELLOW_LED, HIGH); }
@@ -330,6 +362,7 @@ void loop() {
           displayMessage(congratsMessage, 3, NEXT_GREEN);
           delay(10000);
 
+          // Reset all LEDs
           digitalWrite(BLUE_LED, LOW);
           digitalWrite(RED_LED, LOW);
           digitalWrite(YELLOW_LED, LOW);
@@ -340,6 +373,7 @@ void loop() {
       }
     }
 
+    // Take a turn
     gameTurn(currentPlayer, TURN);
 
     displayMessage(nextPlayerMessage, 2, NEXT_GREEN);
@@ -388,7 +422,7 @@ void gameTurn(char *currentPlayer, int turn) {
 
     // Check if the encoder button is pressed
     int sw = digitalRead(ROT_SW);
-    if (sw == LOW) { // Assuming LOW when pressed
+    if (sw == LOW) {
       // Confirm selection and exit loop
       break;
     }
@@ -424,6 +458,7 @@ void gameTurn(char *currentPlayer, int turn) {
     }
   }
 
+  // Construct new guess and save metadata
   guess g;
   g.guesser = currentPlayer;
   g.target = target;
@@ -431,5 +466,6 @@ void gameTurn(char *currentPlayer, int turn) {
   g.turnItIs = turn;
   g.turnItWillBe = turn + turnsToGo;
 
+  // Append guess to global list of guesses
   guesses[turn] = g;
 }
