@@ -29,9 +29,10 @@ Adafruit_SSD1306
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
 #define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
-#define SCREEN_ADDRESS 0x3C ///< See datasheet for address
+#define SCREEN_ADDRESS 0x3C /// See datasheet for correct address
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+// Define phases of the game
 enum GameSegment { 
   NEXT_GREEN, 
   ID_YOURSELF,
@@ -82,6 +83,7 @@ guess guesses[100];
 // Reset device at end of game
 void(* resetFunc) (void) = 0;
 
+// Code that runs once when Arduino powers on
 void setup() {
   // LEDs are output
   pinMode(RED_LED, OUTPUT);
